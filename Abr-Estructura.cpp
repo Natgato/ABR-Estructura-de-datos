@@ -711,3 +711,607 @@ void aplicarEventosAmbiental() {
     }
 }
 
+/**
+ * Envejece a todos los ciudadanos
+ */
+void envejecerCiudadanos(Nodo* raiz) {
+    if (raiz == NULL) return;
+    
+    envejecerCiudadanos(raiz->izq);
+    raiz->edad++;
+    
+    // Regresión por edad (E14)
+    if (raiz->edad > 60 && rand() % 100 < 3) {
+        int stat = rand() % 3;
+        int perdida = 1 + rand() % 3;
+        if (stat == 0) raiz->fuerza = max(1, raiz->fuerza - perdida);
+        else if (stat == 1) raiz->inteligencia = max(1, raiz->inteligencia - perdida);
+        else raiz->carisma = max(1, raiz->carisma - perdida);
+    }
+    
+    envejecerCiudadanos(raiz->der);
+}
+
+/**
+ * Actualiza los estados de todos los ciudadanos
+ */
+void actualizarEstados(Nodo* raiz) {
+    if (raiz == NULL) return;
+    
+    actualizarEstados(raiz->izq);
+    
+    // Determinar intención según estado
+    if (raiz->energia < 30) {
+        raiz->intencion = "Descansar";
+        raiz->energia = min(100, raiz->energia + 10);
+    } else if (raiz->fuerza < 5 && rand() % 2 == 0) {
+        raiz->intencion = "Entrenar";
+        raiz->fuerza = min(10, raiz->fuerza + 1);
+    } else if (raiz->inteligencia < 5 && rand() % 2 == 0) {
+        raiz->intencion = "Meditar";
+        raiz->inteligencia = min(10, raiz->inteligencia + 1);
+    } else if (raiz->carisma < 5 && rand() % 2 == 0) {
+        raiz->intencion = "Socializar";
+        raiz->carisma = min(10, raiz->carisma + 1);
+    } else {
+        raiz->intencion = "Trabajar";
+    }
+    
+    // Actualizar estado emocional
+    if (raiz->salud > 80 && raiz->energia > 80) {
+        raiz->estadoEmocional = "Feliz";
+    } else if (raiz->salud < 30 || raiz->energia < 30) {
+        raiz->estadoEmocional = "Agotado";
+    } else {
+        raiz->estadoEmocional = "Neutro";
+    }
+    
+    actualizarEstados(raiz->der);
+}
+
+/**
+ * Verifica y elimina ciudadanos que deben morir
+ */
+void verificarMuerte() {
+    if (raiz == NULL) return;
+    
+    vector<Nodo*> muertos;
+    vector<Nodo*> todos;
+    obtenerListaInorden(raiz, todos);
+    
+    for (size_t i = 0; i < todos.size(); i++) {
+        Nodo* ciudadano = todos[i];
+        if (ciudadano == NULL) continue;
+        
+        bool debeMorir = false;
+        
+        // Muerte por edad avanzada
+        if (ciudadano->edad > 90) {
+            int probabilidad = 10 + (ciudadano->edad - 90) * 5;
+            if (rand() % 100 < probabilidad) {
+                debeMorir = true;
+            }
+        }
+        
+        // Muerte por salud crítica
+        if (ciudadano->salud <= 0) {
+            debeMorir = true;
+        }
+        
+        // Inanición (E15)
+        if (ciudadano->energia == 0 && rand() % 100 < 30) {
+            ciudadano->salud = max(0, ciudadano->salud - (10 + rand() % 11));
+            if (ciudadano->salud <= 0) {
+                debeMorir = true;
+            }
+        }
+        
+        if (debeMorir) {
+            muertos.push_back(ciudadano);
+        }
+    }
+    
+    // Eliminar muertos del árbol
+    for (size_t i = 0; i < muertos.size(); i++) {
+        Nodo* muerto = muertos[i];
+        cout << "Muerte: " << muerto->id << " (edad: " << muerto->edad << ", salud: " << muerto->salud << ")" << endl;
+        
+        // Desconectar de padre si existe
+        if (muerto->padre != NULL) {
+            if (muerto->padre->izq == muerto) {
+                muerto->padre->izq = NULL;
+            } else if (muerto->padre->der == muerto) {
+                muerto->padre->der = NULL;
+            }
+        }
+        
+        eliminarNodo(raiz, muerto->id);
+    }
+}
+
+/**
+ * Ejecuta un ciclo completo de simulación
+ */
+void ejecutarCicloSimulacion() {
+    if (raiz == NULL) {
+        cout << "Error: No hay ciudadanos en el arbol. Cree fundadores primero." << endl;
+        return;
+    }
+    
+    cicloActual++;
+    cout << "\n========== CICLO " << cicloActual << " ==========" << endl;
+    
+    // 1. Envejecer ciudadanos
+    envejecerCiudadanos(raiz);
+    
+    // 2. Actualizar estados
+    actualizarEstados(raiz);
+    
+    // 3. Aplicar eventos ambientales
+    aplicarEventosAmbiental();
+    
+    // 4. Aplicar eventos personales
+    vector<Nodo*> todos;
+    obtenerListaInorden(raiz, todos);
+    for (size_t i = 0; i < todos.size(); i++) {
+        if (todos[i] != NULL) {
+            aplicarEventosPersonal(todos[i]);
+        }
+    }
+    
+    // 5. Procesar reproducción
+    procesarReproduccion();
+    
+    // 6. Verificar muertes
+    verificarMuerte();
+    
+    // 7. Mostrar resumen
+    int poblacion = contarNodos(raiz);
+    int altura = calcularAltura(raiz);
+    cout << "\nResumen del ciclo: Poblacion = " << poblacion 
+         << ", Altura del arbol = " << altura << endl;
+}
+
+/**
+ * Calcula la altura del árbol
+ */
+int calcularAltura(Nodo* raiz) {
+    if (raiz == NULL) return 0;
+    
+    int alturaIzq = calcularAltura(raiz->izq);
+    int alturaDer = calcularAltura(raiz->der);
+    
+    return 1 + max(alturaIzq, alturaDer);
+}
+
+/**
+ * Cuenta el número de nodos en el árbol
+ */
+int contarNodos(Nodo* raiz) {
+    if (raiz == NULL) return 0;
+    return 1 + contarNodos(raiz->izq) + contarNodos(raiz->der);
+}
+
+/**
+ * Obtiene una lista ordenada de todos los nodos mediante inorden
+ */
+void obtenerListaInorden(Nodo* raiz, vector<Nodo*>& lista) {
+    if (raiz == NULL) return;
+    obtenerListaInorden(raiz->izq, lista);
+    lista.push_back(raiz);
+    obtenerListaInorden(raiz->der, lista);
+}
+
+/**
+ * Construye un ABB equilibrado desde una lista ordenada
+ */
+Nodo* construirABBEquilibrado(vector<Nodo*>& lista, int inicio, int fin) {
+    if (inicio > fin) return NULL;
+    if (inicio < 0 || fin < 0) return NULL;
+    if (fin >= (int)lista.size()) return NULL;
+    
+    int medio = (inicio + fin) / 2;
+    if (medio < 0 || medio >= (int)lista.size() || lista[medio] == NULL) return NULL;
+    
+    Nodo* raiz = lista[medio];
+    
+    raiz->izq = construirABBEquilibrado(lista, inicio, medio - 1);
+    raiz->der = construirABBEquilibrado(lista, medio + 1, fin);
+    
+    if (raiz->izq != NULL) raiz->izq->padre = raiz;
+    if (raiz->der != NULL) raiz->der->padre = raiz;
+    
+    return raiz;
+}
+
+/**
+ * Balancea el árbol reconstruyéndolo de forma equilibrada
+ */
+void balancearArbol() {
+    if (raiz == NULL) {
+        cout << "Error: El arbol esta vacio. No hay nada que balancear." << endl;
+        return;
+    }
+    
+    vector<Nodo*> lista;
+    obtenerListaInorden(raiz, lista);
+    
+    if (lista.empty()) {
+        cout << "Error: No se pudo obtener la lista de nodos." << endl;
+        return;
+    }
+    
+    // Limpiar referencias padre-hijo
+    for (size_t i = 0; i < lista.size(); i++) {
+        if (lista[i] != NULL) {
+            Nodo* nodo = lista[i];
+            nodo->izq = NULL;
+            nodo->der = NULL;
+            nodo->padre = NULL;
+        }
+    }
+    
+    raiz = construirABBEquilibrado(lista, 0, lista.size() - 1);
+    
+    cout << "Arbol balanceado exitosamente." << endl;
+}
+
+/**
+ * Genera un reporte global del estado de la civilización
+ */
+void generarReporteGlobal() {
+    cout << "\n========== REPORTE GLOBAL ==========" << endl;
+    
+    if (raiz == NULL) {
+        cout << "El arbol esta vacio. No hay datos para mostrar." << endl;
+        cout << "=====================================\n" << endl;
+        return;
+    }
+    
+    int poblacion = contarNodos(raiz);
+    int altura = calcularAltura(raiz);
+    
+    cout << "\n--- Estadisticas Generales ---" << endl;
+    cout << "Poblacion total: " << poblacion << endl;
+    cout << "Altura del arbol: " << altura << endl;
+    cout << "Ciclo actual: " << cicloActual << endl;
+    
+    // Distribución por generaciones
+    vector<Nodo*> todos;
+    obtenerListaInorden(raiz, todos);
+    
+    if (todos.empty()) {
+        cout << "No hay ciudadanos en el arbol." << endl;
+        cout << "=====================================\n" << endl;
+        return;
+    }
+    
+    int maxGeneracion = 0;
+    for (size_t i = 0; i < todos.size(); i++) {
+        if (todos[i]->generacion > maxGeneracion) {
+            maxGeneracion = todos[i]->generacion;
+        }
+    }
+    
+    cout << "\n--- Distribucion por Generaciones ---" << endl;
+    for (int g = 0; g <= maxGeneracion; g++) {
+        int count = 0;
+        for (size_t i = 0; i < todos.size(); i++) {
+            if (todos[i]->generacion == g) count++;
+        }
+        cout << "Generacion " << g << ": " << count << " ciudadanos" << endl;
+    }
+    
+    // Distribución por profesión
+    cout << "\n--- Distribucion por Profesion ---" << endl;
+    string profesiones[] = {"Fundador", "Campesino", "Artesano", "Guerrero", "Sabio", "Curandero"};
+    int numProfesiones = 6;
+    for (int j = 0; j < numProfesiones; j++) {
+        string prof = profesiones[j];
+        int count = 0;
+        for (size_t i = 0; i < todos.size(); i++) {
+            if (todos[i]->profesion == prof) count++;
+        }
+        if (count > 0) {
+            cout << prof << ": " << count << endl;
+        }
+    }
+    
+    // Distribución por rareza
+    cout << "\n--- Distribucion por Rareza ---" << endl;
+    string rarezas[] = {"Comun", "Raro", "Epico", "Legendario"};
+    int numRarezas = 4;
+    for (int j = 0; j < numRarezas; j++) {
+        string rar = rarezas[j];
+        int count = 0;
+        for (size_t i = 0; i < todos.size(); i++) {
+            if (todos[i]->rareza == rar) count++;
+        }
+        if (count > 0) {
+            cout << rar << ": " << count << endl;
+        }
+    }
+    
+    cout << "\n=====================================\n" << endl;
+}
+
+/**
+ * Muestra el menú principal
+ */
+void mostrarMenu() {
+    cout << "\n========== MENU PRINCIPAL ==========" << endl;
+    cout << "1. Crear fundadores" << endl;
+    cout << "2. Insertar ciudadano manualmente" << endl;
+    cout << "3. Buscar ciudadano por ID" << endl;
+    cout << "4. Eliminar ciudadano" << endl;
+    cout << "5. Mostrar arbol (inorden)" << endl;
+    cout << "6. Mostrar arbol (preorden)" << endl;
+    cout << "7. Mostrar arbol (postorden)" << endl;
+    cout << "8. Mostrar arbol (por niveles)" << endl;
+    cout << "9. Ejecutar simulacion" << endl;
+    cout << "10. Balancear arbol" << endl;
+    cout << "11. Generar reporte global" << endl;
+    cout << "12. Calcular altura del arbol" << endl;
+    cout << "0. Salir" << endl;
+    cout << "=====================================" << endl;
+    cout << "Seleccione una opcion: ";
+}
+
+/**
+ * Muestra el menú de simulación
+ */
+void mostrarMenuSimulacion() {
+    cout << "\n========== MENU DE SIMULACION ==========" << endl;
+    cout << "1. Ejecutar un ciclo" << endl;
+    cout << "2. Ejecutar N ciclos" << endl;
+    cout << "3. Volver al menu principal" << endl;
+    cout << "=========================================" << endl;
+    cout << "Seleccione una opcion: ";
+}
+
+// ==================== FUNCIÓN PRINCIPAL ====================
+
+int main() {
+    srand(time(NULL)); // Inicializar semilla aleatoria
+    
+    int opcion;
+    bool enSimulacion = false;
+    
+    do {
+        if (!enSimulacion) {
+            mostrarMenu();
+            cin >> opcion;
+            
+            switch (opcion) {
+                case 1: {
+                    int cantidad;
+                    cout << "Ingrese cantidad de fundadores a crear: ";
+                    cin >> cantidad;
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(10000, '\n');
+                        cout << "Error: Entrada invalida. Debe ingresar un numero entero." << endl;
+                    } else {
+                        crearFundadores(cantidad);
+                    }
+                    break;
+                }
+                
+                case 2: {
+                    int id;
+                    string familia;
+                    int generacion;
+                    
+                    cout << "Ingrese ID: ";
+                    cin >> id;
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(10000, '\n');
+                        cout << "Error: ID invalido." << endl;
+                        break;
+                    }
+                    
+                    if (id <= 0) {
+                        cout << "Error: El ID debe ser mayor que 0." << endl;
+                        break;
+                    }
+                    
+                    if (buscarNodo(raiz, id) != NULL) {
+                        cout << "Error: Ya existe un ciudadano con ese ID." << endl;
+                        break;
+                    }
+                    
+                    cout << "Ingrese familia (ej. F1): ";
+                    cin >> familia;
+                    if (familia.empty()) {
+                        cout << "Error: La familia no puede estar vacia." << endl;
+                        break;
+                    }
+                    
+                    cout << "Ingrese generacion: ";
+                    cin >> generacion;
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(10000, '\n');
+                        cout << "Error: Generacion invalida." << endl;
+                        break;
+                    }
+                    
+                    if (generacion < 0) {
+                        cout << "Error: La generacion no puede ser negativa." << endl;
+                        break;
+                    }
+                    
+                    Nodo* nuevo = crearNodo(id, familia, generacion);
+                    if (nuevo != NULL) {
+                        insertarNodo(raiz, nuevo);
+                        cout << "Ciudadano insertado exitosamente." << endl;
+                    } else {
+                        cout << "Error: No se pudo crear el ciudadano." << endl;
+                    }
+                    break;
+                }
+                
+                case 3: {
+                    if (raiz == NULL) {
+                        cout << "Error: El arbol esta vacio. No hay ciudadanos para buscar." << endl;
+                        break;
+                    }
+                    
+                    int id;
+                    cout << "Ingrese ID a buscar: ";
+                    cin >> id;
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(10000, '\n');
+                        cout << "Error: ID invalido." << endl;
+                        break;
+                    }
+                    
+                    Nodo* encontrado = buscarNodo(raiz, id);
+                    mostrarCiudadanoCompleto(encontrado);
+                    break;
+                }
+                
+                case 4: {
+                    if (raiz == NULL) {
+                        cout << "Error: El arbol esta vacio. No hay ciudadanos para eliminar." << endl;
+                        break;
+                    }
+                    
+                    int id;
+                    cout << "Ingrese ID a eliminar: ";
+                    cin >> id;
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(10000, '\n');
+                        cout << "Error: ID invalido." << endl;
+                        break;
+                    }
+                    
+                    Nodo* encontrado = buscarNodo(raiz, id);
+                    if (encontrado != NULL) {
+                        eliminarNodo(raiz, id);
+                        cout << "Ciudadano eliminado exitosamente." << endl;
+                    } else {
+                        cout << "Ciudadano no encontrado." << endl;
+                    }
+                    break;
+                }
+                
+                case 5:
+                    if (raiz == NULL) {
+                        cout << "El arbol esta vacio. No hay ciudadanos para mostrar." << endl;
+                    } else {
+                        cout << "\n--- Recorrido Inorden ---" << endl;
+                        recorridoInorden(raiz);
+                    }
+                    break;
+                
+                case 6:
+                    if (raiz == NULL) {
+                        cout << "El arbol esta vacio. No hay ciudadanos para mostrar." << endl;
+                    } else {
+                        cout << "\n--- Recorrido Preorden ---" << endl;
+                        recorridoPreorden(raiz);
+                    }
+                    break;
+                
+                case 7:
+                    if (raiz == NULL) {
+                        cout << "El arbol esta vacio. No hay ciudadanos para mostrar." << endl;
+                    } else {
+                        cout << "\n--- Recorrido Postorden ---" << endl;
+                        recorridoPostorden(raiz);
+                    }
+                    break;
+                
+                case 8:
+                    if (raiz == NULL) {
+                        cout << "El arbol esta vacio. No hay ciudadanos para mostrar." << endl;
+                    } else {
+                        cout << "\n--- Recorrido por Niveles ---" << endl;
+                        recorridoPorNiveles(raiz);
+                    }
+                    break;
+                
+                case 9:
+                    if (raiz == NULL) {
+                        cout << "Error: No hay ciudadanos en el arbol. Cree fundadores primero." << endl;
+                    } else {
+                        enSimulacion = true;
+                    }
+                    break;
+                
+                case 10:
+                    balancearArbol();
+                    break;
+                
+                case 11:
+                    generarReporteGlobal();
+                    break;
+                
+                case 12: {
+                    if (raiz == NULL) {
+                        cout << "Altura del arbol: 0 (arbol vacio)" << endl;
+                    } else {
+                        int altura = calcularAltura(raiz);
+                        cout << "Altura del arbol: " << altura << endl;
+                    }
+                    break;
+                }
+                
+                case 0:
+                    cout << "Saliendo del programa..." << endl;
+                    break;
+                
+                default:
+                    cout << "Opcion invalida. Intente nuevamente." << endl;
+            }
+        } else {
+            mostrarMenuSimulacion();
+            int opcionSim;
+            cin >> opcionSim;
+            
+            switch (opcionSim) {
+                case 1:
+                    ejecutarCicloSimulacion();
+                    break;
+                
+                case 2: {
+                    int n;
+                    cout << "Ingrese cantidad de ciclos a ejecutar: ";
+                    cin >> n;
+                    if (cin.fail()) {
+                        cin.clear();
+                        cin.ignore(10000, '\n');
+                        cout << "Error: Entrada invalida. Debe ingresar un numero entero." << endl;
+                        break;
+                    }
+                    if (n <= 0) {
+                        cout << "Error: La cantidad debe ser mayor que 0." << endl;
+                        break;
+                    }
+                    if (n > 1000) {
+                        cout << "Advertencia: Cantidad muy grande (" << n << "). Limitando a 1000." << endl;
+                        n = 1000;
+                    }
+                    for (int i = 0; i < n; i++) {
+                        ejecutarCicloSimulacion();
+                    }
+                    break;
+                }
+                
+                case 3:
+                    enSimulacion = false;
+                    break;
+                
+                default:
+                    cout << "Opcion invalida." << endl;
+            }
+        }
+        
+    } while (opcion != 0);
+    
+    return 0;
+}
